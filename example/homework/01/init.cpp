@@ -1,5 +1,9 @@
 #include <stdio.h>
 #include <mpi.h>
+#include <iostream>
+#include <iomanip>
+
+using namespace std;
 
 int main(int argc, char *argv[]) {
     int rank, size;
@@ -15,8 +19,8 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < n; i++) {
         // print and send very first message. separated because it does not receive
 	if (rank == 0 && i == 0) {
-            printf("%d: %d\n", rank, message);
-            message++;
+            cout << "Ring: " << i << "  |  Process: " << setw(2) << rank << "  |  Message: " << setw(3) << message << endl;
+	    message++;
             MPI_Isend(&message, 1, MPI_INT, 1, 0, MPI_COMM_WORLD, &request);
             MPI_Wait(&request, MPI_STATUSES_IGNORE);
         } 
@@ -25,7 +29,7 @@ int main(int argc, char *argv[]) {
 	else {
             MPI_Irecv(&message, 1, MPI_INT, (rank == 0) ? (size - 1) : (rank - 1), 0, MPI_COMM_WORLD, &request);
             MPI_Wait(&request, MPI_STATUSES_IGNORE);
-            printf("%d: %d\n", rank, message);
+	    cout << "Ring: " << i << "  |  Process: " << setw(2) << rank << "  |  Message: " << setw(3) << message << endl;
             message++;
             
 	    // send message, unless if on the final process on the final ring
