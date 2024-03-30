@@ -1,52 +1,58 @@
 #include <Kokkos_Core.hpp>
 #include <mpi.h>
-#include <cstdio>
+#include <iostream>
 
 int main(int argc, char* argv[]) {
-    MPI_Init(&argc, &argv);
-    Kokkos::initialize(argc, argv);
+  MPI_Init(&argc, &argv);
+  Kokkos::initialize(argc, argv);
 
-    // Make View and init values
-    int rank, size;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-    Kokkos::View<double*> myView("myView", 10); // Initialize View with size 10
-    const int N = 10; // Size of the View
+  int rank, size;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    if (rank == 0) {
-        // Initialize View on rank 0
-        Kokkos::parallel_for("initialize view", Kokkos::RangePolicy<>(0, N), KOKKOS_LAMBDA(int i) {
-            myView(i) = i * i;
-        });
-    }
+  int n = 10;
 
-    // Send View values with MPI functions
-    MPI_Barrier(MPI_COMM_WORLD); // Synchronize MPI processes
+  Kokkos::View<double*> myView("myView", n);
 
-    if (rank == 1) {
-        // Allocate memory to receive the View
-        double* recvData = new double[N];
+  // initialize and send view for rank = 0
+  if (rank == 0) {
+    for (int i = 0; i < n; i++) {
+      myView(i) = (double)(i);
+     }
+     std::cout << "Process: " << rank << "  |  Sent view:     ";
+     for (int i = 0; i < n; i++) {
+       std::cout << myView(i) << " ";
+     }
+     std::cout << std::endl;
 
-        // Receive the View data from rank 0
-        MPI_Status status;
-        MPI_Recv(recvData, N, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, &status);
+     std::vector<MPI_Request> requests(size - 1);
 
-        // Print out the received View
-        printf("Received View on rank %d:\n", rank);
-        for (int i = 0; i < N; ++i) {
-            printf("%f ", recvData[i]);
+     // send View
+     for (int i = 0; i < size; i++) {
+        MPI_Send(myView.data(), n, MPI_DOUBLE, i, 0, MPI_COMM_WORLD);
+        //MPI_Isend(myView.data(), n, MPI_DOUBLE, i, 0, MPI_COMM_WORLD, &requests[i - 1]);
         }
-        printf("\n");
-
-        delete[] recvData;
+	//MPI_Waitall(size, requests.data(), MPI_STATUSES_IGNORE);
+        //MPI_Wait(&requests, MPI_STATUS_IGNORE);
+    }
+    // receive View for rank = 1
+    else {
+      //MPI_Request request;
+      //MPI_Irecv(myView.data(), n, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, &request);
+      //MPI_Wait(&request, MPI_STATUS_IGNORE);
+      MPI_Recv(myView.data(), n, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUSES_IGNORE);
+      
+      std::cout << "Process: " << rank << "  |  Received view: ";
+      for (int i = 0; i < n; i++) {
+        std::cout << myView(i) << " ";
+      }
+      std::cout << std::endl;
     }
 
-    // Output
-    printf("\nhello world\n");
+    myView = Kokkos::View<double*>(); //deallocate view explicitly
+
 
     Kokkos::finalize();
     MPI_Finalize();
-
-    return 0;
 }
 
