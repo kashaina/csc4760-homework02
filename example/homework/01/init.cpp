@@ -19,8 +19,8 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < n; i++) {
         // print and send very first message. separated because it does not receive
 	if (rank == 0 && i == 0) {
-            cout << "Ring: " << i << "  |  Process: " << setw(2) << rank << "  |  Message: " << setw(3) << message << endl;
-	    message++;
+            //cout << "Ring: " << i << "  |  Process: " << setw(2) << rank << "  |  Message: " << setw(3) << message << endl;
+	    //message++;
             MPI_Isend(&message, 1, MPI_INT, 1, 0, MPI_COMM_WORLD, &request);
             MPI_Wait(&request, MPI_STATUSES_IGNORE);
         } 

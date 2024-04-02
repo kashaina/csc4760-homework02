@@ -8,16 +8,16 @@ int main(int argc, char* argv[]) {
 
   // create and initialize views
   int n = 1001;
-  Kokkos::View<double*> original_view("myView", n);
+  Kokkos::View<int*> original_view("myView", n);
 
   Kokkos::parallel_for("Loop1", original_view.extent(0), KOKKOS_LAMBDA (const int i) {
-    original_view(i) = rand() % 1000;
+    original_view(i) = i * i;
   });
   Kokkos::fence();
 
   // create two additional views of same size and datatype
-  Kokkos::View<double*> deep_copy_view("copy1_view", n);
-  Kokkos::View<double*> parallel_for_view("copy2_view", n);
+  Kokkos::View<int*> deep_copy_view("copy1_view", n);
+  Kokkos::View<int*> parallel_for_view("copy2_view", n);
 
   // deep_copy
   Kokkos::Timer deep_copy_timer;
@@ -35,7 +35,23 @@ int main(int argc, char* argv[]) {
 
   // output times 
   std::cout << "Deep Copy Time: " << deep_copy_time << " seconds";
-  std::cout << "\nParallel For Copy Time: " << parallel_for_time << " seconds\n\n\n";
+  std::cout << "\nParallel For Copy Time: " << parallel_for_time << " seconds\n";
+
+  // compare deep_copy_view and parallel_for_view
+  bool views_are_equal = true;
+    for (int i = 0; i < n; ++i) {
+      if (deep_copy_view(i) != parallel_for_view(i)) {
+        views_are_equal = false;
+          break;
+      }
+  }
+
+  // output equality
+  if (views_are_equal) {
+    std::cout << "\ndeep_copy_view and parallel_for_view are equal\n\n\n";
+  } else {
+     std::cout << "\ndeep_copy_view and parallel_for_view are not equal\n\n\n";
+  }
 
 
   }
