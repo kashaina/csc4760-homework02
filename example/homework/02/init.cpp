@@ -12,6 +12,7 @@ using namespace std;
 void zero_domain(char *domain, int M, int N);
 void print_domain(char *domain, int M, int N, int rank, int iter);
 void update_domain(char *new_domain, char *old_domain, int M, int N, int rank, int size);
+char* populate1(char *domain, int original_M, int M, int N, int rank);
 
 int main(int argc, char **argv)
 {
@@ -58,7 +59,9 @@ int main(int argc, char **argv)
   // fill in even_domain with something meaningful (initial state)
   // this requires min size for default values to fit:
   // calculate and fill using the global row
-  if((N >= 8) && (original_M >= 10)){
+  
+  even_domain = populate1(even_domain, original_M, M, N, rank);
+/*  if((N >= 8) && (original_M >= 10)){
     for(int i = 0; i < M; ++i){
       int global_row = rank * M + i;
       if (global_row < original_M){
@@ -75,8 +78,10 @@ int main(int argc, char **argv)
         }
       }
     }
-  }
+  }*/
   MPI_Barrier(MPI_COMM_WORLD);
+
+
 
   // prints picture in order by row using mpi_gather
   if (rank == 0) {
@@ -195,13 +200,13 @@ void update_domain(char *new_domain, char *old_domain, int M, int N, int rank, i
         warped_domain[i * (N + 2) + j] = (ghost_cells_north[N - 1]) ? 1 : 0;
       }
       else if (i == 0 && j == N + 1) { // top-right corner -> left column of ghost_cells_north
-        warped_domain[i * (N + 2) + j] = (ghost_cells_south[0]) ? 1 : 0;
+        warped_domain[i * (N + 2) + j] = (ghost_cells_north[0]) ? 1 : 0;
       }
       else if (i == M + 1 && j == 0) { // bottom-left corner -> right column of ghost_cells_south
         warped_domain[i * (N + 2) + j] = (ghost_cells_south[N - 1]) ? 1 : 0;
       }
       else if (i == M + 1 && j == N + 1) { // bottom-right corner -> left column of ghost_cells_south
-        warped_domain[i * (N + 2) + j] = (ghost_cells_north[0]) ? 1 : 0;
+        warped_domain[i * (N + 2) + j] = (ghost_cells_south[0]) ? 1 : 0;
       }
       else if (i == 0) { // top row excluding corners -> ghost_cells_north
         warped_domain[i * (N + 2) + j] = (ghost_cells_north[j - 1]) ? 1 : 0;
@@ -217,11 +222,12 @@ void update_domain(char *new_domain, char *old_domain, int M, int N, int rank, i
       }
       else { // inner domain -> old_domain
         warped_domain[i * (N + 2) + j] = (old_domain[(i - 1) * N + (j - 1)]) ? 1 : 0;
+	      warped_domain[i * (N + 2) + j] = (old_domain[(i - 1) * N + (j - 1)]) ? 1 : 0;
       }
     }
   }
-
-  /*MPI_Barrier(MPI_COMM_WORLD);
+/*
+  MPI_Barrier(MPI_COMM_WORLD);
   cout << "\nNew domain: " << rank << endl;
   for(int i = 0; i < M + 2; ++i)
   {
@@ -251,19 +257,16 @@ void update_domain(char *new_domain, char *old_domain, int M, int N, int rank, i
 	for(int delta_j = -1; delta_j <= 1; delta_j++){
 	  if(delta_i == 0 && delta_j == 0) //skip self
 	    continue;
-
-	  if(warped_domain[((i+delta_i+M)%M)*N+((j+delta_j+N)%N)])
-	     ++neighbor_count;
-	    
+	  if (warped_domain[(i + delta_i) * (N + 2) + (j + delta_j)] == 1)
+            ++neighbor_count;
 	}
       }
-      char mycell = warped_domain[i*N + j];
+      char mycell = warped_domain[i * (N + 2) + j];
       char newcell = 0;
       if(mycell == 0)
 	newcell = (neighbor_count == 3) ? 1 : 0;
       else
 	newcell = ((neighbor_count == 2)||(neighbor_count == 3)) ? 1 : 0;
-      //new_domain[i * N + j] = newcell;
       new_domain[(i - 1) * N + (j - 1)] = newcell;
     }
   }
@@ -271,3 +274,26 @@ void update_domain(char *new_domain, char *old_domain, int M, int N, int rank, i
   delete[] ghost_cells_north;
   delete[] ghost_cells_south;
 }
+
+char* populate1(char *domain, int original_M, int M, int N, int rank) {
+  if((N >= 8) && (original_M >= 10)){
+  for(int i = 0; i < M; ++i){
+    int global_row = rank * M + i;
+    if (global_row < original_M){
+      if (global_row == 0){
+        domain[i*N + (N-1)] = 1;
+        domain[i*N + 0] = 1;
+        domain[i*N + 1] = 1;
+      }else if (global_row == 3){
+        domain[i*N + 5] = 1;
+        domain[i*N + 6] = 1;
+        domain[i*N + 7] = 1;
+      }else if (global_row == 6 || (global_row >= 7 && global_row <= 9)){
+        domain[i*N + 7] = 1;
+        }
+      }
+    }
+  }
+  return domain;
+}
+
