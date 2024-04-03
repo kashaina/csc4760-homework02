@@ -1,0 +1,4 @@
+There are currently 5+ patterns in both init.cpp (parallelized) and serial-gol.cpp (provided serial) to test and compare.
+You can uncomment the function line in main to determine which function to run (or uncomment all of them if you are feeling funky).
+Several of them require large dimensions so please view at the very bottom of each file if nothing prints.
+Both init.cpp and serial-gol.cpp have the same output for these various patterns :)

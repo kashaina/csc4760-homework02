@@ -10,10 +10,13 @@ using namespace std;
 
 // forward declarations:
 void zero_domain(char *domain, int M, int N);
-void print_domain(char *domain, int M, int N, int rank, int iter);
+void print_domain(char *domain, int M, int N);
 void update_domain(char *new_domain, char *old_domain, int M, int N, int rank, int size);
-char* populate1(char *domain, int original_M, int M, int N, int rank);
-
+char* populate_default(char *domain, int original_M, int M, int N, int rank);
+char* populate_glider(char *domain, int original_M, int M, int N, int rank);
+char* populate_bad_acorn(char *domain, int original_M, int M, int N, int rank);
+char* populate_cap(char *domain, int original_M, int M, int N, int rank);
+char* populate_mysnake(char *domain, int original_M, int M, int N, int rank);
 int main(int argc, char **argv)
 {
   MPI_Init(&argc, &argv);
@@ -31,20 +34,29 @@ int main(int argc, char **argv)
 
   int original_M, M, N;
   int iterations;
+  int option;
 
   if(argc < 4) {
     if (rank == 0) {
-      cout << "usage: " << argv[0] << " M N iterations" << endl;
+      cout << "usage: " << argv[0] << " M N iterations" << endl << endl;
     }
     MPI_Finalize();
     exit(0);
   }
-  
+
   original_M = atoi(argv[1]); //rows
   N = atoi(argv[2]); //columns. this will not be divided among processes
   iterations = atoi(argv[3]);
  
-  // divides M by size and distributes remainders if needed
+  if(original_M < size){
+    if (rank == 0){
+      cout << "More rows than processes. Error" << endl << endl;
+    }
+    MPI_Finalize();
+    exit(0);
+  }
+
+  // divides M by size and distributes remainders if needed (although this won't be tested)
   M = original_M / size;
   if (rank < (original_M % size)){
     M += 1;
@@ -58,30 +70,13 @@ int main(int argc, char **argv)
 
   // fill in even_domain with something meaningful (initial state)
   // this requires min size for default values to fit:
-  // calculate and fill using the global row
   
-  even_domain = populate1(even_domain, original_M, M, N, rank);
-/*  if((N >= 8) && (original_M >= 10)){
-    for(int i = 0; i < M; ++i){
-      int global_row = rank * M + i;
-      if (global_row < original_M){
-        if (global_row == 0){
-          even_domain[i*N + (N-1)] = 1;
-          even_domain[i*N + 0] = 1;
-          even_domain[i*N + 1] = 1;
-        }else if (global_row == 3){
-          even_domain[i*N + 5] = 1;
-          even_domain[i*N + 6] = 1;
-          even_domain[i*N + 7] = 1;
-        }else if (global_row == 6 || (global_row >= 7 && global_row <= 9)){
-           even_domain[i*N + 7] = 1;
-        }
-      }
-    }
-  }*/
-  MPI_Barrier(MPI_COMM_WORLD);
-
-
+  //!!CHOOSE WHICH TEST YOU WANT TO RUN!!
+  even_domain = populate_default(even_domain, original_M, M, N, rank);
+  //even_domain = populate_glider(even_domain, original_M, M, N, rank);
+  //even_domain = populate_bad_acorn(even_domain, original_M, M, N, rank);
+  //even_domain = populate_cap(even_domain, original_M, M, N, rank);
+  //even_domain = populate_mysnake(even_domain, original_M, M, N, rank);
 
   // prints picture in order by row using mpi_gather
   if (rank == 0) {
@@ -92,7 +87,7 @@ int main(int argc, char **argv)
   if (rank == 0) {
     cout << "Initial: " << endl;
     for (int j = 0; j < size; ++j) {
-      print_domain(&global_domain[j * M * N], M, N, j, -1);
+      print_domain(&global_domain[j * M * N], M, N);
     }
     delete[] global_domain;
   }  
@@ -116,7 +111,7 @@ int main(int argc, char **argv)
     if (rank == 0) {
       cout << "Iteration #" << i << endl;
       for (int j = 0; j < size; ++j) {
-        print_domain(&global_domain[j * M * N], M, N, j, i);
+        print_domain(&global_domain[j * M * N], M, N);
       }
       delete[] global_domain;
     }
@@ -144,12 +139,11 @@ void zero_domain(char *domain, int M, int N)
 }
 
 
-void print_domain(char *domain, int M, int N, int rank, int iter)
+void print_domain(char *domain, int M, int N)
 {
   // this is naive; it doesn't understand big domains at all
   for(int i = 0; i < M; ++i)
   {
-    cout << setw(2) << rank << ": ";
     for(int j = 0; j < N; ++j)
       cout << ((domain[i*N+j]) ? "*" : " ");
     cout << endl;
@@ -164,36 +158,19 @@ void update_domain(char *new_domain, char *old_domain, int M, int N, int rank, i
 
   char *ghost_cells_south = new char[N];
   char *ghost_cells_north = new char[N];
-  int global_north = (rank == 0) ? size - 1 : (rank - 1);
-  int global_south = (rank == size - 1) ? 0 : (rank + 1);
+  int global_north = (rank == 0) ? size - 1 : (rank - 1); //calculates which process is above it
+  int global_south = (rank == size - 1) ? 0 : (rank + 1); //calculates which process is below it
+  char *warped_domain = new char[(M + 2) * (N + 2)];
 
-  MPI_Barrier(MPI_COMM_WORLD);
-  //cout << "\nRank: " << rank << "  |  North: " << global_north << "  |  South: " << global_south << endl;
-
-  MPI_Barrier(MPI_COMM_WORLD);
-
+  // sends and receives bottom and top rows as ghost cells
   MPI_Isend(&old_domain[0], N, MPI_CHAR, global_north, 0, MPI_COMM_WORLD, &request[0]); //sends top column to north neighbor
   MPI_Irecv(ghost_cells_south, N, MPI_CHAR, global_south, 0, MPI_COMM_WORLD, &request[1]); //receives ghost_cells_south row from south neighbor
   MPI_Isend(&old_domain[(M - 1) * N], N, MPI_CHAR, global_south, 0, MPI_COMM_WORLD, &request[2]); //sends bottom row to south neighbor
   MPI_Irecv(ghost_cells_north, N, MPI_CHAR, global_north, 0, MPI_COMM_WORLD, &request[3]); //receives ghost_cells_north row from north neighbor
   MPI_Waitall(4, request, MPI_STATUSES_IGNORE); 
-  
-  /*cout << "Process " << rank << " - Ghost Cells North:";
-  for (int i = 0; i < N; ++i) {
-    //cout << ((ghost_cells_north[i]) ? "*" : " ");
-    cout << ghost_cells_north[i];
-  }
-  cout << endl;
+  MPI_Barrier(MPI_COMM_WORLD);
 
-  cout << "Process " << rank << " - Ghost Cells South:";
-  for (int i = 0; i < N; ++i) {
-    cout << ((ghost_cells_south[i]) ? "*" : " ");
-  }
-  cout << endl;
-  */
-  char *warped_domain = new char[(M + 2) * (N + 2)];
-
-  
+  // creates a copy of old_domain with an extra edge on each side with ghost cells
   for (int i = 0; i < (M + 2); i++) {
     for (int j = 0; j < (N + 2); j++) {
       if (i == 0 && j == 0) { // top-left corner -> right column of ghost_cells_north
@@ -226,33 +203,13 @@ void update_domain(char *new_domain, char *old_domain, int M, int N, int rank, i
       }
     }
   }
-/*
-  MPI_Barrier(MPI_COMM_WORLD);
-  cout << "\nNew domain: " << rank << endl;
-  for(int i = 0; i < M + 2; ++i)
-  {
-    cout << setw(2) << rank << " " << setw(2) << i << "GHOST:";
-    for(int j = 0; j < N + 2; ++j)
-      cout << ((warped_domain[i * (N + 2) + j]) ? "*" : "X");
-    cout << endl;
-  }
 
-  print_domain(warped_domain, M + 2, N + 2, rank, 0);
-  MPI_Barrier(MPI_COMM_WORLD);
-  */
-
-  /*cout << "\nInner part of the domain (excluding ghost cells):" << rank << endl;
-  for(int i = 1; i <= M; ++i) {
-    cout << setw(2) << rank << " " << setw(2) << i << "GHOST: ";
-    for(int j = 1; j <= N; ++j)
-        cout << ((warped_domain[i * (N + 2) + j]) ? "*" : "X");
-    cout << endl;
-  }*/
-
+  // iterate through only the INNER WARPED DOMAIN 
   for (int i = 1; i <= M; ++i){
     for (int j = 1; j <= N; ++j){
       neighbor_count = 0;
       
+      // check neighbors (because we are iterating only through inner warped domain, each cell iterated through has neighbors)
       for(int delta_i = -1; delta_i <= 1; delta_i++){
 	for(int delta_j = -1; delta_j <= 1; delta_j++){
 	  if(delta_i == 0 && delta_j == 0) //skip self
@@ -275,7 +232,7 @@ void update_domain(char *new_domain, char *old_domain, int M, int N, int rank, i
   delete[] ghost_cells_south;
 }
 
-char* populate1(char *domain, int original_M, int M, int N, int rank) {
+char* populate_default(char *domain, int original_M, int M, int N, int rank) {
   if((N >= 8) && (original_M >= 10)){
   for(int i = 0; i < M; ++i){
     int global_row = rank * M + i;
@@ -297,3 +254,81 @@ char* populate1(char *domain, int original_M, int M, int N, int rank) {
   return domain;
 }
 
+char* populate_glider(char *domain, int original_M, int M, int N, int rank) {
+  if((N >= 3) && (original_M >= 3)){
+  for(int i = 0; i < M; ++i){
+    int global_row = rank * M + i;
+    if (global_row < original_M){
+      if (global_row == 0){
+        domain[i*N + 1] = 1;
+      }else if (global_row == 1){
+        domain[i*N + 2] = 1;
+      }else if (global_row == 2){
+        domain[i*N + 0] = 1;
+        domain[i*N + 1] = 1;
+        domain[i*N + 2] = 1;
+        }
+      }
+    }
+  }
+  return domain;
+}
+
+char* populate_bad_acorn(char *domain, int original_M, int M, int N, int rank) {
+  if((N >= 60) && (original_M >= 55)){
+  for(int i = 0; i < M; ++i){
+    int global_row = rank * M + i;
+
+    if (global_row < original_M){
+      if (global_row == 50){
+        domain[i*N + 51] = 1;
+      }else if (global_row == 51){
+        domain[i*N + 54] = 1;
+      }else if (global_row == 52){
+        domain[i*N + 50] = 1;
+        domain[i*N + 51] = 1;
+        domain[i*N + 54] = 1;
+        domain[i*N + 55] = 1;
+	domain[i*N + 56] = 1;
+        }
+      }
+    }
+  }
+  return domain;
+}
+
+char* populate_cap(char *domain, int original_M, int M, int N, int rank) {
+  if((N >= 13) && (original_M >= 13)){
+  for(int i = 0; i < M; ++i){
+    int global_row = rank * M + i;
+
+    if (global_row < original_M){
+      if (global_row == 9){
+        domain[i*N + 10] = 1;
+	domain[i*N + 11] = 1;
+      }else if (global_row == 10){
+        domain[i*N + 9] = 1;
+	domain[i*N + 12] = 1;
+      }else if (global_row == 11){
+        domain[i*N + 9] = 1;
+        domain[i*N + 10] = 1;
+        domain[i*N + 11] = 1;
+        domain[i*N + 12] = 1;
+        }
+      }
+    }
+  }
+  return domain;
+}
+
+char* populate_mysnake(char *domain, int original_M, int M, int N, int rank) {
+  if((N >= 7) && (original_M >= 1)){
+    for(int i = 0; i < M; ++i){
+      domain[i*N] = 1;
+      domain[i*N + 3] = 1;
+      domain[i*N + 4] = 1;
+      domain[i*N + 7] = 1;
+    }
+  }
+  return domain;
+}
