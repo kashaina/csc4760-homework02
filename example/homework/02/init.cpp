@@ -56,11 +56,16 @@ int main(int argc, char **argv)
     exit(0);
   }
 
-  // divides M by size and distributes remainders if needed (although this won't be tested)
-  M = original_M / size;
-  if (rank < (original_M % size)){
-    M += 1;
+  if (original_M % size != 0){
+    if (rank == 0){
+      cout << "Please have M be divisible by number of processes. Error" << endl << endl;
+    }
+    MPI_Finalize();
+    exit(0);
   }
+
+  // divides rows evenly between the processes
+  M = original_M / size;
   
   even_domain = new char[M*N];
   odd_domain = new char[M*N];
@@ -72,8 +77,8 @@ int main(int argc, char **argv)
   // this requires min size for default values to fit:
   
   //!!CHOOSE WHICH TEST YOU WANT TO RUN!!
-  even_domain = populate_default(even_domain, original_M, M, N, rank);
-  //even_domain = populate_glider(even_domain, original_M, M, N, rank);
+  //even_domain = populate_default(even_domain, original_M, M, N, rank);
+  even_domain = populate_glider(even_domain, original_M, M, N, rank);
   //even_domain = populate_bad_acorn(even_domain, original_M, M, N, rank);
   //even_domain = populate_cap(even_domain, original_M, M, N, rank);
   //even_domain = populate_mysnake(even_domain, original_M, M, N, rank);
@@ -98,6 +103,7 @@ int main(int argc, char **argv)
     char *temp;
     char *global_domain;
 
+    // calculates neighbors and updates domain
     update_domain(odd_domain, even_domain, M, N, rank, size);
     MPI_Barrier(MPI_COMM_WORLD);
 
@@ -173,16 +179,16 @@ void update_domain(char *new_domain, char *old_domain, int M, int N, int rank, i
   // creates a copy of old_domain with an extra edge on each side with ghost cells
   for (int i = 0; i < (M + 2); i++) {
     for (int j = 0; j < (N + 2); j++) {
-      if (i == 0 && j == 0) { // top-left corner -> right column of ghost_cells_north
+      if (i == 0 && j == 0) { // top-left corner -> rightmost cell of ghost_cells_north
         warped_domain[i * (N + 2) + j] = (ghost_cells_north[N - 1]) ? 1 : 0;
       }
-      else if (i == 0 && j == N + 1) { // top-right corner -> left column of ghost_cells_north
+      else if (i == 0 && j == N + 1) { // top-right corner -> leftmost cell of ghost_cells_north
         warped_domain[i * (N + 2) + j] = (ghost_cells_north[0]) ? 1 : 0;
       }
-      else if (i == M + 1 && j == 0) { // bottom-left corner -> right column of ghost_cells_south
+      else if (i == M + 1 && j == 0) { // bottom-left corner -> rightmost cell of ghost_cells_south
         warped_domain[i * (N + 2) + j] = (ghost_cells_south[N - 1]) ? 1 : 0;
       }
-      else if (i == M + 1 && j == N + 1) { // bottom-right corner -> left column of ghost_cells_south
+      else if (i == M + 1 && j == N + 1) { // bottom-right corner -> leftmost cell of ghost_cells_south
         warped_domain[i * (N + 2) + j] = (ghost_cells_south[0]) ? 1 : 0;
       }
       else if (i == 0) { // top row excluding corners -> ghost_cells_north
@@ -191,10 +197,10 @@ void update_domain(char *new_domain, char *old_domain, int M, int N, int rank, i
       else if (i == M + 1) { // bottom row excluding corners -> ghost_cells_south
         warped_domain[i * (N + 2) + j] = (ghost_cells_south[j - 1]) ? 1 : 0;
       }
-      else if (j == 0) { // left column excluding corners -> right column of old_domain
+      else if (j == 0) { // left column excluding corners -> rightmost column of old_domain
         warped_domain[i * (N + 2) + j] = (old_domain[(i - 1) * N + (N - 1)]) ? 1 : 0;
       }
-      else if (j == N + 1) { // right column excluding corners -> left column of old_domain
+      else if (j == N + 1) { // right column excluding corners -> leftmost column of old_domain
         warped_domain[i * (N + 2) + j] = (old_domain[(i - 1) * N]) ? 1 : 0;
       }
       else { // inner domain -> old_domain
@@ -204,7 +210,7 @@ void update_domain(char *new_domain, char *old_domain, int M, int N, int rank, i
     }
   }
 
-  // iterate through only the INNER WARPED DOMAIN 
+  // iterate through only the INNER WARPED DOMAIN since that is what we want to calculate
   for (int i = 1; i <= M; ++i){
     for (int j = 1; j <= N; ++j){
       neighbor_count = 0;

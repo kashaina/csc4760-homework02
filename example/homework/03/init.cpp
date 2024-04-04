@@ -34,8 +34,12 @@ int main(int argc, char* argv[]) {
   double parallel_for_time = parallel_for_timer.seconds();
 
   // output times 
-  std::cout << "Deep Copy Time: " << deep_copy_time << " seconds";
-  std::cout << "\nParallel For Copy Time: " << parallel_for_time << " seconds\n";
+  std::cout << "Deep Copy Time: " << deep_copy_time << " seconds\n";
+  std::cout << "Parallel For Copy Time: " << parallel_for_time << " seconds\n\n";
+
+  //output comparison 
+  double speedup_factor = parallel_for_time / deep_copy_time;
+  std::cout << "Deep copy is " << speedup_factor << " times faster than parallel for\n\n";
 
   // compare deep_copy_view and parallel_for_view
   bool views_are_equal = true;
@@ -48,9 +52,9 @@ int main(int argc, char* argv[]) {
 
   // output equality
   if (views_are_equal) {
-    std::cout << "\ndeep_copy_view and parallel_for_view are equal\n\n\n";
+    std::cout << "deep_copy_view and parallel_for_view are equal\n\n\n";
   } else {
-     std::cout << "\ndeep_copy_view and parallel_for_view are not equal\n\n\n";
+     std::cout << "deep_copy_view and parallel_for_view are not equal\n\n\n";
   }
 
 

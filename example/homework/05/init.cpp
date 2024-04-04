@@ -1,31 +1,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <mpi.h>
+#include <iostream>
+#include <iomanip>
+
+using namespace std;
 
 int main(int argc, char *argv[]) {
-    MPI_Init(&argc, &argv);
+  MPI_Init(&argc, &argv);
 
-    int rank, size;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
+  int rank, size;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    // check if the number of processes is 24, or exit
-    if (size != 24) {
-	if (rank == 0) {
-            printf("\nPlease try again with 24 processes.\n\n");
-	}
-	MPI_Finalize();
-        return 0;
-    }
+  int Q = 4;
 
-    int P = 6;
-    int Q = 4;
-
-    if (rank == 0){
-        printf("\nWorld size: 24\n");
-	printf("P: 6\n");
-	printf("Q: 4\n");
-    }
+  if (rank == 0){
+    cout << "\nWorld size: " << size;
+    cout << "\nQ: 4\n";
+  }
 
     // split communicator based on ranks divided by Q
     int color1 = rank / Q;
@@ -42,7 +35,7 @@ int main(int argc, char *argv[]) {
     MPI_Comm_rank(comm1, &rank1);
     MPI_Comm_rank(comm2, &rank2);
 
-    printf("World rank: %2d  |  Comm1 rank: %d  |  Comm2 rank: %d\n", rank, rank1, rank2);
+    cout << "World rank: " << setw(2) << rank << "  |  Comm1 rank: " << rank1 << "  |  Comm2 rank: " << rank2 << endl;
 
     MPI_Comm_free(&comm1);
     MPI_Comm_free(&comm2);

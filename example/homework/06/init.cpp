@@ -24,29 +24,28 @@ int main(int argc, char* argv[]) {
       std::cout << myView(i) << " ";
     }
     std::cout << std::endl;
-
-    std::vector<MPI_Request> requests(size - 1);
-
-     // send View
-     for (int i = 1; i < size; i++) {
-       MPI_Send(myView.data(), n, MPI_DOUBLE, i, 0, MPI_COMM_WORLD);
-      }
+  
+  std::vector<MPI_Request> requests(size - 1);
+ // send View
+   for (int i = 1; i < size; i++) {
+     MPI_Send(myView.data(), n, MPI_DOUBLE, i, 0, MPI_COMM_WORLD);
     }
-    // receive View for rank = 1
-    else {
-      MPI_Recv(myView.data(), n, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+  }
+
+  // receive View for rank = 1
+  else {
+    MPI_Recv(myView.data(), n, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
       
-      std::cout << "Process: " << rank << "  |  Received view: ";
-      for (int i = 0; i < n; i++) {
-        std::cout << myView(i) << " ";
-      }
-      std::cout << std::endl << std::endl;
+    std::cout << "Process: " << rank << "  |  Received view: ";
+    for (int i = 0; i < n; i++) {
+      std::cout << myView(i) << " ";
     }
+    std::cout << std::endl << std::endl;
+  }
 
-    myView = Kokkos::View<double*>(); //deallocate view explicitly
+  myView = Kokkos::View<double*>(); //deallocate view explicitly
 
-
-    Kokkos::finalize();
-    MPI_Finalize();
+  Kokkos::finalize();
+  MPI_Finalize();
 }
 

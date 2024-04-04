@@ -39,8 +39,8 @@ int main(int argc, char **argv)
   // this requires min size for default values to fit:
   
   //!!CHOOSE WHICH TEST YOU WANT TO RUN!!
-  even_domain = populate_default(even_domain, M, M, N, 0);
-  //even_domain = populate_glider(even_domain, M, M, N, 0);
+  // even_domain = populate_default(even_domain, M, M, N, 0);
+  even_domain = populate_glider(even_domain, M, M, N, 0);
   //even_domain = populate_bad_acorn(even_domain, M, M, N, 0);
   //even_domain = populate_cap(even_domain, M, M, N, 0);
   //even_domain = populate_mysnake(even_domain, M, M, N, 0);
