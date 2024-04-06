@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
     MPI_Comm_rank(comm2, &rank2);
 
     cout << "World rank: " << setw(2) << rank << "  |  Comm1 rank: " << rank1 << "  |  Comm2 rank: " << rank2 << endl;
-
+    
     MPI_Comm_free(&comm1);
     MPI_Comm_free(&comm2);
 
